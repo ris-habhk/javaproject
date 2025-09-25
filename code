@@ -1,0 +1,505 @@
+package edu.ccrm.config;
+
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.Instant;
+
+public final class AppConfig {
+    private static AppConfig theInstance;
+    
+    private final Path dataDir;
+    
+    private final Instant startTime;
+
+    
+    private AppConfig() {
+    
+        this.dataDir = Paths.get(System.getProperty("user.home"), "ccrm_data");
+    
+        this.startTime = Instant.now();
+    }
+
+    public static synchronized AppConfig get() {
+    
+        if (theInstance == null) 
+        
+        theInstance = new AppConfig();
+    
+        return theInstance;
+    }
+
+    public Path getDataPath() {
+         return dataDir; 
+        
+    }
+    
+    public Instant getStart() { 
+        return startTime;
+        
+    }
+    
+}
+
+package edu.ccrm.domain;
+
+public enum Semester { SPRING, SUMMER, FALL, WINTER } 
+
+package edu.ccrm.domain;
+
+public enum Grade {
+    S(10), A(9), B(8), C(7), D(6), E(0); 
+    private final int points;
+    
+    Grade(int p){
+        
+        
+         this.points = p; 
+    
+    
+    
+    }
+    
+    public int getPoints(){ 
+        
+        return points; 
+        
+        
+    }
+    
+}
+
+// File: src/edu/ccrm/domain/Person.java
+package edu.ccrm.domain;
+
+import java.time.LocalDate;
+
+public abstract class Person {
+    
+    protected final String id;
+    
+    protected String fullName;
+    
+    protected String email;
+    
+    protected LocalDate createdDate;
+
+    public Person(String id, String name, String email) {
+        
+        this.id = id;
+        
+        this.fullName = name;
+        
+        this.email = email;
+        
+        this.createdDate = LocalDate.now();
+    }
+
+    public abstract String profile();
+    
+    public String getId() { 
+        return id; 
+    }
+    
+    public String getName() {
+         return fullName; 
+    }
+    
+    public String getEmail() { 
+        return email; 
+    }
+    
+    public void setEmail(String e) { 
+        this.email = e; 
+    }
+
+}
+
+package edu.ccrm.domain;
+
+import java.util.*;
+
+public class Student extends Person {
+    
+    private String regNumber;
+    
+    private boolean active = true;
+    
+    private final Map<String, Enrollment> enrollments = new HashMap<>();
+
+    public Student(String id, String reg, String name, String email){ 
+        
+        super(id, name, email); 
+        
+        this.regNumber = reg; 
+    }
+
+    public void addEnrollment(Enrollment e) throws DuplicateEnrollmentException {
+        if(enrollments.containsKey(e.getCourse().getCode())) 
+            throw new DuplicateEnrollmentException("Already enrolled in: " + e.getCourse().getCode());
+        enrollments.put(e.getCourse().getCode(), e);
+    }
+    
+    public void dropCourse(String courseCode){ enrollments.remove(courseCode); }
+    
+    public Collection<Enrollment> getEnrollments(){ return enrollments.values(); }
+
+    @Override
+    public String profile(){ 
+        return String.format("Student[ID=%s, Reg=%s, Name=%s, Email=%s]", id, regNumber, fullName, email); 
+    }
+    
+    @Override
+    public String toString(){ return profile(); }
+    
+}
+
+// File: src/edu/ccrm/domain/Instructor.java
+package edu.ccrm.domain;
+
+public class Instructor extends Person {
+    private String department;
+    
+    public Instructor(String id, String name, String email, String dept){ 
+        super(id, name, email); 
+        this.department = dept; 
+    }
+    
+    @Override
+    public String profile(){ 
+        return String.format("Instructor[ID=%s, Name=%s, Dept=%s]", id, fullName, department); 
+    }
+    
+}
+
+// File: src/edu/ccrm/domain/Course.java
+package edu.ccrm.domain;
+
+public class Course {
+    private final String code;
+    private final String title;
+    private final int credits;
+    private Instructor instructor;
+    private Semester semester;
+    private String department;
+
+    private Course(Builder b){
+        this.code = b.code; 
+        this.title = b.title; 
+        this.credits = b.credits;
+        this.instructor = b.instructor; 
+        this.semester = b.semester; 
+        this.department = b.department;
+    }
+
+    public String getCode(){ return code; }
+    
+    public int getCredits(){ return credits; }
+    
+    public Instructor getInstructor(){ return instructor; }
+    
+    public void setInstructor(Instructor i){ this.instructor = i; }
+    
+    public Semester getSemester(){ return semester; }
+    
+    public void setSemester(Semester s){ this.semester = s; }
+
+    @Override
+    public String toString(){ return code + " - " + title + " (" + credits + " credits)"; }
+
+    public static class Builder {
+        private final String code, title; 
+        private final int credits;
+        private Instructor instructor; 
+        private Semester semester; 
+        private String department;
+        
+        public Builder(String code, String title, int credits) {
+            this.code = code;
+            this.title = title;
+            this.credits = credits;
+        }
+        
+        public Builder instructor(Instructor i){ this.instructor = i; return this; }
+        
+        public Builder semester(Semester s){ this.semester = s; return this; }
+        
+        public Builder department(String d){ this.department = d; return this; }
+        
+        public Course build(){ return new Course(this); } 
+    }
+    
+}
+
+// File: src/edu/ccrm/domain/Enrollment.java
+package edu.ccrm.domain;
+
+import java.time.LocalDate;
+
+public class Enrollment {
+    private final Student student;
+    private final Course course;
+    private final LocalDate enrollmentDate;
+    private Grade grade;
+
+    public Enrollment(Student s, Course c){ 
+        this.student = s; 
+        this.course = c; 
+        this.enrollmentDate = LocalDate.now(); 
+    }
+    
+    public Course getCourse(){ return course; }
+    
+    public void setGrade(Grade g){ this.grade = g; }
+    
+    public Grade getGrade(){ return grade; }
+    
+    @Override
+    public String toString(){ 
+        return student.getName() + " -> " + course.getCode() + ": " + (grade == null ? "No Grade" : grade); 
+    }
+    
+}
+
+// File: src/edu/ccrm/exceptions/DuplicateEnrollmentException.java
+package edu.ccrm.exceptions;
+
+public class DuplicateEnrollmentException extends Exception { 
+    public DuplicateEnrollmentException(String msg){ super(msg); } 
+}
+
+// File: src/edu/ccrm/exceptions/MaxCreditLimitExceededException.java
+package edu.ccrm.exceptions;
+
+public class MaxCreditLimitExceededException extends Exception { 
+    public MaxCreditLimitExceededException(String msg){ super(msg); } 
+}
+
+// File: src/edu/ccrm/service/DataStore.java
+package edu.ccrm.service;
+
+import edu.ccrm.domain.*;
+import java.util.*;
+
+public class DataStore {
+    private static DataStore instance;
+    private final Map<String, Student> students = new HashMap<>();
+    private final Map<String, Course> courses = new HashMap<>();
+
+    private DataStore(){}
+    
+    public static synchronized DataStore getInstance(){ 
+        if(instance == null) instance = new DataStore(); 
+        return instance; 
+    }
+
+    public Collection<Student> getAllStudents(){ return students.values(); }
+    
+    public Collection<Course> getAllCourses(){ return courses.values(); }
+    
+    public Optional<Student> getStudent(String id){ return Optional.ofNullable(students.get(id)); }
+    
+    public Optional<Course> getCourse(String code){ return Optional.ofNullable(courses.get(code)); }
+    
+    public void saveStudent(Student s){ students.put(s.getId(), s); }
+    
+    public void saveCourse(Course c){ courses.put(c.getCode(), c); }
+    
+}
+
+// File: src/edu/ccrm/service/EnrollmentService.java
+package edu.ccrm.service;
+
+import edu.ccrm.domain.*;
+import edu.ccrm.exceptions.*;
+import java.util.*;
+import java.util.stream.*;
+
+public class EnrollmentService {
+    private final DataStore store = DataStore.getInstance();
+    private final int maxCredits = 18;
+
+    public void enrollStudent(String studentId, String courseCode) throws Exception {
+        Student student = store.getStudent(studentId).orElseThrow(() -> new Exception("Student not found"));
+        Course course = store.getCourse(courseCode).orElseThrow(() -> new Exception("Course not found"));
+        
+        int currentCredits = student.getEnrollments().stream()
+                .mapToInt(e -> e.getCourse().getCredits())
+                .sum();
+                
+        if(currentCredits + course.getCredits() > maxCredits) 
+            throw new MaxCreditLimitExceededException("Credit limit exceeded");
+            
+        Enrollment enrollment = new Enrollment(student, course); 
+        student.addEnrollment(enrollment);
+    }
+
+    public void assignGrade(String studentId, String courseCode, Grade grade) throws Exception {
+        Student student = store.getStudent(studentId).orElseThrow(() -> new Exception("Student not found"));
+        
+        Enrollment enrollment = student.getEnrollments().stream()
+                .filter(e -> e.getCourse().getCode().equals(courseCode))
+                .findFirst()
+                .orElseThrow(() -> new Exception("Enrollment not found"));
+                
+        enrollment.setGrade(grade);
+    }
+
+    public double calculateGPA(Student student) {
+        List<Enrollment> gradedEnrollments = student.getEnrollments().stream()
+                .filter(e -> e.getGrade() != null)
+                .collect(Collectors.toList());
+                
+        if(gradedEnrollments.isEmpty()) return 0.0;
+        
+        double totalPoints = gradedEnrollments.stream()
+                .mapToDouble(e -> e.getGrade().getPoints() * e.getCourse().getCredits())
+                .sum();
+                
+        double totalCredits = gradedEnrollments.stream()
+                .mapToDouble(e -> e.getCourse().getCredits())
+                .sum();
+                
+        return totalCredits == 0 ? 0 : totalPoints / totalCredits;
+    }
+    
+}
+
+package edu.ccrm.cli;
+
+import edu.ccrm.config.*;
+import edu.ccrm.domain.*;
+import edu.ccrm.service.*;
+import java.util.*;
+
+public class AppMain {
+    private static final Scanner input = new Scanner(System.in);
+    private static final DataStore dataStore = DataStore.getInstance();
+    private static final EnrollmentService enrollmentService = new EnrollmentService();
+
+    public static void main(String[] args) {
+        AppConfig config = AppConfig.get();
+        System.out.println("CCRM System starting at " + config.getDataPath());
+        
+        setupTestData(); 
+        
+        boolean running = true;
+        while(running) {
+            System.out.println("\n1) Students 2) Courses 3) Enrollments 0) Exit");
+            String choice = input.nextLine();
+            
+            switch(choice) {
+                case "1": studentMenu(); break;
+                case "2": courseMenu(); break;
+                case "3": enrollmentMenu(); break;
+                case "0": running = false; break;
+                default: System.out.println("Invalid choice");
+            }
+        }
+    }
+
+    private static void studentMenu() {
+        System.out.println("a) Add student b) List students");
+        String choice = input.nextLine();
+        
+        switch(choice) {
+            case "a":
+                String id = UUID.randomUUID().toString();
+                System.out.print("Registration number: ");
+                String reg = input.nextLine();
+                System.out.print("Name: ");
+                String name = input.nextLine();
+                System.out.print("Email: ");
+                String email = input.nextLine();
+                
+                Student student = new Student(id, reg, name, email);
+                dataStore.saveStudent(student);
+                System.out.println("Student added: " + student.getId());
+                break;
+                
+            case "b": 
+                dataStore.getAllStudents().forEach(System.out::println); 
+                break;
+                
+            default:
+                System.out.println("Invalid option");
+        }
+    }
+
+    private static void courseMenu() {
+        System.out.println("a) Add course b) List courses");
+        String choice = input.nextLine();
+        
+        if("a".equals(choice)) {
+            System.out.print("Course code: ");
+            String code = input.nextLine();
+            System.out.print("Course title: ");
+            String title = input.nextLine();
+            System.out.print("Credits: ");
+            int credits = Integer.parseInt(input.nextLine());
+            
+            Course course = new Course.Builder(code, title, credits)
+                .department("CSE")
+                .build();
+                
+            dataStore.saveCourse(course);
+            System.out.println("Course added: " + course.getCode());
+            
+        } else if("b".equals(choice)) {
+            dataStore.getAllCourses().forEach(System.out::println);
+        } else {
+            System.out.println("Invalid option");
+        }
+    }
+
+    private static void enrollmentMenu() {
+        System.out.println("a) Enroll student b) Assign grade");
+        String choice = input.nextLine();
+        
+        try {
+            if("a".equals(choice)) {
+                System.out.print("Student ID: ");
+                String studentId = input.nextLine();
+                System.out.print("Course code: ");
+                String courseCode = input.nextLine();
+                enrollmentService.enrollStudent(studentId, courseCode);
+                System.out.println("Enrollment successful");
+                
+            } else if("b".equals(choice)) {
+                System.out.print("Student ID: ");
+                String studentId = input.nextLine();
+                System.out.print("Course code: ");
+                String courseCode = input.nextLine();
+                System.out.print("Grade (S, A, B, C, D, F): ");
+                String gradeInput = input.nextLine().toUpperCase();
+                
+                Grade grade = Grade.valueOf(gradeInput);
+                enrollmentService.assignGrade(studentId, courseCode, grade);
+                System.out.println("Grade assigned");
+                
+            } else {
+                System.out.println("Invalid option");
+            }
+        } catch(Exception e) { 
+            System.out.println("Error: " + e.getMessage()); 
+        }
+    }
+
+    private static void setupTestData() {
+        
+        Student testStudent = new Student(
+            UUID.randomUUID().toString(), 
+            "R1001", 
+            "Test Student", 
+            "test@university.edu"
+        );
+        dataStore.saveStudent(testStudent);
+        
+        Course introCourse = new Course.Builder("CSE101", "Introduction to Programming", 4)
+            .department("CSE")
+            .build();
+        dataStore.saveCourse(introCourse);
+        
+        System.out.println("Test data loaded");
+    }
+    
+}
